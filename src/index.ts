@@ -2,6 +2,7 @@ import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
 import { Widget } from '@lumino/widgets';
 
+import {IRender} from './typings';
 /**
  * The default mime type for the extension.
  */
@@ -10,7 +11,7 @@ const MIME_TYPE = 'application/vnd.jupyter.es6-rich-output';
 /**
  * The class name added to the extension.
  */
-const CLASS_NAME = 'mimerenderer-ES6 Rich Output';
+const CLASS_NAME = 'mimerenderer-es6-rich-output';
 
 /**
  * A widget for rendering ES6 Rich Output.
@@ -28,10 +29,20 @@ export class OutputWidget extends Widget implements IRenderMime.IRenderer {
   /**
    * Render ES6 Rich Output into this widget's node.
    */
-  renderModel(model: IRenderMime.IMimeModel): Promise<void> {
+  async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
     const data = model.data[this._mimeType] as string;
-    this.node.textContent = data.slice(0, 16384);
-    return Promise.resolve();
+    // Import module, call its render function
+    console.log(model.data);
+    console.log(`Rendering ${data}`);
+    const module: IRender = await import(/* webpackIgnore: true */ data);
+    const context = {};
+    const div = document.createElement('div');
+    this.node.appendChild(div);
+    await module?.render(
+      { data: model.data, metadata: model.metadata },
+      div,
+      context
+    );
   }
 
   private _mimeType: string;
