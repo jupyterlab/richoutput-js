@@ -4,6 +4,42 @@
 
 A JupyterLab extension for rendering ES6 Rich Output files.
 
+An example mimebundle:
+
+```json
+{
+  'application/vnd.jupyter.es6-rich-output': 'a string that will be the src of a script tag, i.e., a url, data url, etc.',
+  'application/vnd.jupyter.datagrid+json': {'data': ['some', 'data', 'in', 'a', 'structure', 'which', 'the', 'js', 'can', 'access']},
+  'text/html': 'fallback rendering of your data',
+  'text/plain': 'fallback rendering of your data'
+}
+```
+
+The mimebundle renderer for `application/vnd.jupyter.es6-rich-output` does a System.import of the url as an object, then calls the render method if it exists with a context object, awaiting the returned `Promise<void>` before moving to the next output.
+
+
+The context object has mandatory fields:
+
+- `output`: {'data': {...}, 'metadata': {...}} (which is the display_data or execute_result message data/metadata fields). Changes are not respected - treat it as immutable. 
+  - Should the `transient` data also be passed in???
+- `element`: HTMLDivElement
+
+
+Optional fields:
+- `render(output, element): Promise<void>`: 
+  - `output`: a kernel iopub stream, display_data, execute_result, error message (i.e., inputs into the rendering system)
+    - Should these be formatted for nbformat (e.g., transient field is not included)???
+  - `element`: an HTMLDivElement
+  - Promise resolves when the rendering callback returns
+- `comms`: See Colab interface...
+  - `Comm` interface
+  - `open("target")`: 
+- `sharedState`: Map([@@Symbol]: Any) - shared state that might span render calls or contexts. This is considered mutable, in that a renderer can share things with other render calls, replace implementations, etc.
+  - Let's explore exactly the scope of shared state (e.g., per kernel, per document, etc.). Does there need to be different scopes, or a way to introspect the scopes, etc.???
+- 
+
+
+
 ## Requirements
 
 * JupyterLab >= 3.0
