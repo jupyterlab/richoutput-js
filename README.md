@@ -8,10 +8,12 @@ An example mimebundle:
 
 ```json
 {
-  'application/vnd.jupyter.es6-rich-output': 'a string that will be the src of a script tag, i.e., a url, data url, etc.',
-  'application/vnd.jupyter.datagrid+json': {'data': ['some', 'data', 'in', 'a', 'structure', 'which', 'the', 'js', 'can', 'access']},
-  'text/html': 'fallback rendering of your data',
-  'text/plain': 'fallback rendering of your data'
+    "application/vnd.jupyter.es6-rich-output": "a string that will be the src of a script tag, i.e., a url, data url, etc.",
+    "application/vnd.jupyter.datagrid+json": {
+        "data": ["some", "data", "in", "a", "structure", "which", "the", "js", "can", "access"]
+    },
+    "text/html": "fallback rendering of your data",
+    "text/plain": "fallback rendering of your data"
 }
 ```
 
