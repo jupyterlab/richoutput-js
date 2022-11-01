@@ -2,7 +2,7 @@ import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
 import { Widget } from '@lumino/widgets';
 
-import {IRender} from './typings';
+import { IRender } from './typings';
 /**
  * The default mime type for the extension.
  */
