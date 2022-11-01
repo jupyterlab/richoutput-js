@@ -1,6 +1,6 @@
 # richoutput-js
 
-![Github Actions Status](https://github.com/my_name/myextension/workflows/Build/badge.svg)
+![Github Actions Status](https://github.com/jupyterlab/richoutput-js/workflows/Build/badge.svg)
 
 A JupyterLab extension for rendering ES6 Rich Output files.
 
