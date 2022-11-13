@@ -14,6 +14,34 @@ export interface IRender {
 
 export declare interface Context {
   getModelState(modelId: string): Promise<Map<string, ModelState>>;
+  readonly comms?: IComms;
+}
+
+export declare interface IComms {
+  /**
+   * Open a new comm channel to the kernel.
+   *
+   * The kernel should have registered a handler following the documentation
+   * at
+   * https://jupyter-notebook.readthedocs.io/en/stable/comms.html#opening-a-comm-from-the-frontend.
+   *
+   * @param targetName The name of the channel registered on the kernel.
+   * @param data Any data to be sent with the open message.
+   * @param buffers Any binary data to be sent with the open message.
+   * @return The established comm channel.
+   */
+  open(targetName: string, data?: JsonType, buffers?: ArrayBuffer[]): Promise<IComm>;
+
+  /**
+   * Listen comm channels opened by the kernel.
+   *
+   * See
+   * https://jupyter-notebook.readthedocs.io/en/stable/comms.html#opening-a-comm-from-the-kernel.
+   *
+   * @param targetName The name used by the kernel to open a new comm channel.
+   * @param callback Function invoked with any new comm channels.
+   */
+   registerTarget(targetName: string, callback: (comm: IComm) => void): void;
 }
 
 export declare interface ModelState {
@@ -26,14 +54,14 @@ export declare interface ModelState {
    * If connected to a kernel then this is the comm channel to the kernel.
    * This will only be set if currently connected to a kernel.
    */
-   readonly comm?: Comm;
+   readonly comm?: IComm;
 }
 
 
 
 /** Placeholder for any JSON serializable type. */
 // tslint:disable-next-line:no-any
-type JsonType = any;
+export type JsonType = any;
 
 
 export interface CommMessage {
@@ -43,7 +71,7 @@ export interface CommMessage {
   readonly buffers?: ArrayBuffer[];
 }
 
-export interface Comm {
+export interface IComm {
   /**
    * Send a comm message to the kernel.
    * @param data The message data to be sent.

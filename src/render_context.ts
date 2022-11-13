@@ -1,8 +1,9 @@
-import { CommChannel, CommHost } from './comm';
-import { Context, ModelState } from './typings';
+import { CommChannel, CommHost, Message} from './comm';
+import { Context, ModelState, IComms, JsonType, IComm} from './typings';
 import { WidgetModels } from './widgets';
+import { UUID} from '@lumino/coreutils';
 
-export class RenderContext implements Context {
+export class RenderContext {
   constructor(private readonly models: WidgetModels, private readonly commHost?: CommHost) {
 
   }
@@ -22,5 +23,60 @@ export class RenderContext implements Context {
       })
     }
     return result;
+  }
+
+  get comms(): IComms|undefined {
+    if (!this.commHost) {
+      return;
+    }
+    return new Comms(this.commHost).wrapper;
+  }
+
+  /**
+   * Returns a wrapper object which hides the implementation details from
+   * clients.
+   */
+  get wrapper(): Context {
+    const context = this;
+    return {
+      getModelState: (modelId: string) => {
+        return this.getModelState(modelId);
+      },
+      get comms(): IComms|undefined {
+        return context.comms;
+      },
+    }
+  }
+}
+
+class Comms {
+  constructor(private readonly host: CommHost) {
+  }
+
+  async open(targetName: string, data?: JsonType, buffers?: ArrayBuffer[]): Promise<IComm> {
+    const id = UUID.uuid4();
+
+    const comm = new CommChannel(id, this.host);
+    await comm.open(targetName, data, buffers);
+    return comm.getWrapper();
+  }
+
+  registerTarget(targetName: string, callback: (comm: IComm, data?: JsonType, buffers?: ArrayBuffer[]) => void): void {
+    this.host.registerTarget(targetName, (commId: string, message: Message) => {
+      const comm = new CommChannel(commId, this.host);
+      callback(comm.getWrapper(), message.data, message.buffers);
+
+    });
+  }
+
+  get wrapper(): IComms {
+    return {
+      open: (targetName: string, data?: JsonType, buffers?: ArrayBuffer[]): Promise<IComm> => {
+        return this.open(targetName, data, buffers);
+      },
+      registerTarget: (targetName: string, callback: (comm: IComm) => void): void => {
+        this.registerTarget(targetName, callback)
+      },
+    }
   }
 }

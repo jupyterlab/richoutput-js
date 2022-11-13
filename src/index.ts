@@ -7,7 +7,7 @@ import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookModel, INotebookTracker } from '@jupyterlab/notebook';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
 import { Kernel, KernelMessage} from '@jupyterlab/services';
-import { JSONObject } from '@lumino/coreutils';
+import { JSONObject} from '@lumino/coreutils';
 
 
 import { Widget } from '@lumino/widgets';
@@ -55,6 +55,8 @@ const CLASS_NAME = 'mimerenderer-es6-rich-output';
   }
 };
 
+type CommOpenListener = (commId: string, message: Message) => void;
+
 class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
   readonly safe = false;
   readonly mimeTypes = [MIME_TYPE];
@@ -62,6 +64,7 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
   private widgets = new WidgetModels();
   private readonly commMessageListeners = new Map<string, CommMessageListener[]>();
   private readonly commCloseListeners = new Map<string, CommCloseListener[]>();
+  private readonly commOpenListeners = new Map<string, CommOpenListener[]>();
 
   constructor(
     private readonly context: DocumentRegistry.IContext<INotebookModel> | null
@@ -116,6 +119,21 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     };
   }
 
+  registerTarget(targetName: string, handler: (commId: string, message: Message) => void) {
+    // Callback isn't used, this uses the IOPub messages instead.
+    this.kernel.registerCommTarget(targetName, () => {});
+    let listeners = this.commOpenListeners.get(targetName);
+    if (!listeners) {
+      listeners = [];
+      this.commOpenListeners.set(targetName, listeners);
+    }
+    listeners.push(handler);
+    return () => {
+      const index = listeners.indexOf(handler);
+      listeners.splice(index, 1);
+    };
+  }
+
   async sendCommOpen(targetName: string, commId: string, message: Message): Promise<void> {
     const msg = KernelMessage.createMessage<KernelMessage.ICommOpenMsg<'shell'>>({
       msgType: 'comm_open',
@@ -127,6 +145,7 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
         data: message.data as JSONObject,
         target_name: targetName,
       },
+      buffers: message.buffers,
     });
 
     await this.kernel.sendShellMessage(msg).done;
@@ -142,6 +161,7 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
         comm_id: commId,
         data: message.data as JSONObject,
       },
+      buffers: message.buffers,
     });
     await this.kernel.sendShellMessage(msg).done;
   }
@@ -180,8 +200,7 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     console.log(`====== got kernel iopub: `, msg);
     switch(msg.header.msg_type) {
       case 'comm_open': {
-        const content = msg.content as CommContent;
-        this.widgets.onCommOpen(content.comm_id, content.data, undefined);
+        this.onCommOpen(msg);
         break;
       }
       case 'comm_msg': {
@@ -195,15 +214,31 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     }
   }
 
+  onCommOpen(msg: KernelMessage.IIOPubMessage) {
+    const content = msg.content as CommOpenContent;
+    const buffers = msg.buffers.map(convertBuffer);
+    this.widgets.onCommOpen(content.comm_id, content.data, buffers);
+    const listeners = this.commOpenListeners.get(content.target_name);
+    if (listeners) {
+      for (const listener of listeners) {
+        listener(content.comm_id, {
+          data: content.data, 
+          buffers,
+        });
+      }
+    }
+  }
+
   onCommMessage(msg: KernelMessage.IIOPubMessage) {
     const content = msg.content as CommContent;
-    this.widgets.onCommMessage(content.comm_id, content.data, undefined);
+    const buffers = msg.buffers.map(convertBuffer);
+    this.widgets.onCommMessage(content.comm_id, content.data, buffers);
     const listeners = this.commMessageListeners.get(content.comm_id);
     if (listeners) {
       for (const listener of listeners) {
         listener({
           data: content.data,
-          buffers: undefined,
+          buffers,
         })
       }
     }
@@ -228,7 +263,28 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
   }
 }
 
+function convertBuffer(bufferOrView: ArrayBuffer|ArrayBufferView): ArrayBuffer {
+  if (bufferOrView instanceof ArrayBuffer) {
+    return bufferOrView;
+  }
+  if (bufferOrView.byteOffset == 0 && bufferOrView.byteLength === bufferOrView.buffer.byteLength) {
+    // If there's no byte offset and no truncated length then return the underlying buffer.
+    return bufferOrView.buffer;
+  }
+  // Need to clone the buffer.
+  const buffer = new ArrayBuffer(bufferOrView.byteLength);
+  new Uint8Array(buffer).set(new Uint8Array(bufferOrView as unknown as  ArrayBufferLike));
+  return buffer;
+
+}
+
 declare interface CommContent {
+  readonly comm_id: string;
+  readonly data: WidgetCommData;
+}
+
+declare interface CommOpenContent {
+  readonly target_name: string;
   readonly comm_id: string;
   readonly data: WidgetCommData;
 }
@@ -261,7 +317,7 @@ export class OutputWidget extends Widget implements IRenderMime.IRenderer {
     await module?.render(
       { data: model.data, metadata: model.metadata },
       div,
-      context
+      context.wrapper
     );
   }
 
