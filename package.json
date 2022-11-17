@@ -1,7 +1,7 @@
 {
   "name": "richoutput-js",
   "version": "0.1.0",
-  "description": "A JupyterLab extension for rendering ES6 Rich Output files.",
+  "description": "A JupyterLab extension for rendering ESM Rich Output files.",
   "keywords": [
     "jupyter",
     "jupyterlab",

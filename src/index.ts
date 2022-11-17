@@ -6,15 +6,15 @@ import { IRender } from './typings';
 /**
  * The default mime type for the extension.
  */
-const MIME_TYPE = 'application/vnd.jupyter.es6-rich-output';
+const MIME_TYPE = 'application/vnd.jupyter.esm-rich-output';
 
 /**
  * The class name added to the extension.
  */
-const CLASS_NAME = 'mimerenderer-es6-rich-output';
+const CLASS_NAME = 'mimerenderer-esm-rich-output';
 
 /**
- * A widget for rendering ES6 Rich Output.
+ * A widget for rendering ESM Rich Output.
  */
 export class OutputWidget extends Widget implements IRenderMime.IRenderer {
   /**
@@ -27,7 +27,7 @@ export class OutputWidget extends Widget implements IRenderMime.IRenderer {
   }
 
   /**
-   * Render ES6 Rich Output into this widget's node.
+   * Render ESM Rich Output into this widget's node.
    */
   async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
     const data = model.data[this._mimeType] as string;
@@ -49,7 +49,7 @@ export class OutputWidget extends Widget implements IRenderMime.IRenderer {
 }
 
 /**
- * A mime renderer factory for ES6 Rich Output data.
+ * A mime renderer factory for ESM Rich Output data.
  */
 export const rendererFactory: IRenderMime.IRendererFactory = {
   safe: true,
@@ -67,16 +67,16 @@ const extension: IRenderMime.IExtension = {
   dataType: 'string',
   fileTypes: [
     {
-      name: 'ES6 Rich Output',
+      name: 'ESM Rich Output',
       mimeTypes: [MIME_TYPE],
-      extensions: ['.es6richoutput'],
+      extensions: ['.esmrichoutput'],
     },
   ],
   documentWidgetFactoryOptions: {
-    name: 'ES6 Rich Output',
-    primaryFileType: 'ES6 Rich Output',
-    fileTypes: ['ES6 Rich Output'],
-    defaultFor: ['ES6 Rich Output'],
+    name: 'ESM Rich Output',
+    primaryFileType: 'ESM Rich Output',
+    fileTypes: ['ESM Rich Output'],
+    defaultFor: ['ESM Rich Output'],
   },
 };
 
