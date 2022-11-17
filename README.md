@@ -2,13 +2,13 @@
 
 ![Github Actions Status](https://github.com/jupyterlab/richoutput-js/workflows/Build/badge.svg)
 
-A JupyterLab extension for rendering ES6 Rich Output files.
+A JupyterLab extension for rendering ESM Rich Output files.
 
 An example mimebundle:
 
 ```json
 {
-    "application/vnd.jupyter.es6-rich-output": "a string that will be the src of a script tag, i.e., a url, data url, etc.",
+    "application/vnd.jupyter.esm-rich-output": "a string that will be the src of a script tag, i.e., a url, data url, etc.",
     "application/vnd.jupyter.datagrid+json": {
         "data": ["some", "data", "in", "a", "structure", "which", "the", "js", "can", "access"]
     },
@@ -17,7 +17,7 @@ An example mimebundle:
 }
 ```
 
-The mimebundle renderer for `application/vnd.jupyter.es6-rich-output` does a System.import of the url as an object, then calls the render method if it exists with a context object, awaiting the returned `Promise<void>` before moving to the next output.
+The mimebundle renderer for `application/vnd.jupyter.esm-rich-output` does a System.import of the url as an object, then calls the render method if it exists with a context object, awaiting the returned `Promise<void>` before moving to the next output.
 
 
 The context object has mandatory fields:
