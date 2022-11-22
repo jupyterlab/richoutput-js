@@ -11,7 +11,11 @@ export class WidgetModels {
     return result;
   }
 
-  onCommOpen(commId: string, data: WidgetCommData, buffers: ArrayBuffer[] | undefined) {
+  onCommOpen(
+    commId: string,
+    data: IWidgetCommData,
+    buffers: ArrayBuffer[] | undefined
+  ): void {
     const state = data['state'] || {};
     const modelModule = state['_model_module'] as string;
     const modelName = state['_model_name'] as string;
@@ -24,14 +28,27 @@ export class WidgetModels {
   }
 
   private addModel(
-    modelId: string, modelModule: string, modelName: string,
-    state: { [key: string]: unknown }, bufferData: BufferData | undefined) {
-    const model = new WidgetModel(modelId, modelModule, modelName, state, bufferData);
+    modelId: string,
+    modelModule: string,
+    modelName: string,
+    state: { [key: string]: unknown },
+    bufferData: IBufferData | undefined
+  ) {
+    const model = new WidgetModel(
+      modelId,
+      modelModule,
+      modelName,
+      state,
+      bufferData
+    );
     this.models.set(modelId, model);
   }
 
   onCommMessage(
-    commId: string, data: WidgetCommData, buffers: ArrayBuffer[] | undefined) {
+    commId: string,
+    data: IWidgetCommData,
+    buffers: ArrayBuffer[] | undefined
+  ): void {
     const model = this.models.get(commId);
     if (model) {
       const state = data['state'] || {};
@@ -44,25 +61,24 @@ export class WidgetModels {
     }
   }
 
-  onCommClose(commId: string) {
+  onCommClose(commId: string): void {
     this.models.delete(commId);
   }
-  reset() {
+  reset(): void {
     this.models.clear();
   }
 }
 
-export declare interface WidgetCommData {
+export declare interface IWidgetCommData {
   state: { [key: string]: unknown };
   buffer_paths: string[][];
 }
 
 /** Data stored in the model buffer. */
-export interface BufferData {
+export interface IBufferData {
   readonly buffers: ArrayBuffer[];
   readonly bufferPaths: string[][];
 }
-
 
 class WidgetModel extends EventTarget {
   private state: { [key: string]: unknown };
@@ -73,7 +89,7 @@ class WidgetModel extends EventTarget {
     readonly modelModule: string,
     readonly modelName: string,
     state: { [key: string]: unknown },
-    private buffers: BufferData | undefined,
+    private buffers: IBufferData | undefined
   ) {
     super();
 
@@ -83,11 +99,15 @@ class WidgetModel extends EventTarget {
      * combined to represent the current values of the widget model.
      */
     this.state = Object.assign({}, state);
-    this.modelModuleVersion =
-      this.state['_model_module_version'] as (string | undefined);
+    this.modelModuleVersion = this.state['_model_module_version'] as
+      | string
+      | undefined;
   }
 
-  updateState(state: { [key: string]: unknown }, buffers: BufferData | undefined) {
+  updateState(
+    state: { [key: string]: unknown },
+    buffers: IBufferData | undefined
+  ) {
     // The state is just a dictionary of key-value pairs with new state
     // messages being deltas to previous states.
     this.state = Object.assign(this.state, state);
@@ -101,7 +121,7 @@ class WidgetModel extends EventTarget {
     return this.state;
   }
 
-  getBuffers(): BufferData | void {
+  getBuffers(): IBufferData | void {
     return this.buffers;
   }
 
@@ -109,5 +129,3 @@ class WidgetModel extends EventTarget {
     return this.commId;
   }
 }
-
-

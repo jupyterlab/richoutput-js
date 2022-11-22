@@ -7,13 +7,12 @@ export interface IRender {
   render?(
     output: IOutput,
     element: HTMLDivElement,
-    context: Context,
+    context: IContext
   ): Promise<void>;
 }
 
-
-export declare interface Context {
-  getModelState(modelId: string): Promise<Map<string, ModelState>>;
+export declare interface IContext {
+  getModelState(modelId: string): Promise<Map<string, IModelState>>;
   readonly comms?: IComms;
 }
 
@@ -30,7 +29,11 @@ export declare interface IComms {
    * @param buffers Any binary data to be sent with the open message.
    * @return The established comm channel.
    */
-  open(targetName: string, data?: JsonType, buffers?: ArrayBuffer[]): Promise<IComm>;
+  open(
+    targetName: string,
+    data?: JsonType,
+    buffers?: ArrayBuffer[]
+  ): Promise<IComm>;
 
   /**
    * Listen comm channels opened by the kernel.
@@ -41,30 +44,27 @@ export declare interface IComms {
    * @param targetName The name used by the kernel to open a new comm channel.
    * @param callback Function invoked with any new comm channels.
    */
-   registerTarget(targetName: string, callback: (comm: IComm) => void): void;
+  registerTarget(targetName: string, callback: (comm: IComm) => void): void;
 }
 
-export declare interface ModelState {
+export declare interface IModelState {
   readonly modelName: string;
   readonly modelModule: string;
   readonly modelModuleVersion?: string;
-  readonly state: {[key: string]: unknown};
+  readonly state: { [key: string]: unknown };
 
   /**
    * If connected to a kernel then this is the comm channel to the kernel.
    * This will only be set if currently connected to a kernel.
    */
-   readonly comm?: IComm;
+  readonly comm?: IComm;
 }
-
-
 
 /** Placeholder for any JSON serializable type. */
 // tslint:disable-next-line:no-any
 export type JsonType = any;
 
-
-export interface CommMessage {
+export interface ICommMessage {
   /** The JSON structured data of the message. */
   readonly data: JsonType;
   /** Optional binary buffers transferred with the message. */
@@ -79,7 +79,7 @@ export interface IComm {
    * @return Promise which will be resolved when the kernel successfully
    *     receives the comm message.
    */
-  send(data: JsonType, opts?: {buffers?: ArrayBuffer[]}): Promise<void>;
+  send(data: JsonType, opts?: { buffers?: ArrayBuffer[] }): Promise<void>;
   /**
    * Closes the comm channel and notifies the kernel that the channel
    * is closed.
@@ -89,5 +89,5 @@ export interface IComm {
    * An async iterator of the incoming messages from the kernel.
    * The iterator will end when the comm channel is closed.
    */
-  readonly messages: AsyncIterable<CommMessage>;
+  readonly messages: AsyncIterable<ICommMessage>;
 }

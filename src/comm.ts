@@ -2,40 +2,55 @@ import { AsyncListeners } from './async_iterator';
 import { IComm } from './typings';
 
 /** Interface for messages received from comm channels.  */
-export interface Message {
+export interface IMessage {
   readonly data: unknown;
   readonly buffers?: ArrayBuffer[];
 }
 
 export type DisposeCallback = () => void;
-export type CommMessageListener = (message: Message) => void;
+export type CommMessageListener = (message: IMessage) => void;
 export type CommCloseListener = () => void;
 
-
-export interface CommHost {
-  addMessageListener(commId: string, handler: CommMessageListener): DisposeCallback;
+export interface ICommHost {
+  addMessageListener(
+    commId: string,
+    handler: CommMessageListener
+  ): DisposeCallback;
   addCloseListener(commId: string, handler: CommCloseListener): DisposeCallback;
-  sendCommOpen(targetName: string, commId: string, message: Message): Promise<void>;
-  sendCommMessage(commId: string, message: Message): Promise<void>;
+  sendCommOpen(
+    targetName: string,
+    commId: string,
+    message: IMessage
+  ): Promise<void>;
+  sendCommMessage(commId: string, message: IMessage): Promise<void>;
   sendCommClose(commId: string): Promise<void>;
-  registerTarget(targetName: string, callback: (commId: string, message: Message) => void): DisposeCallback;
+  registerTarget(
+    targetName: string,
+    callback: (commId: string, message: IMessage) => void
+  ): DisposeCallback;
 }
 
 export class CommChannel {
-  private readonly listeners = new AsyncListeners<Message>();
+  private readonly listeners = new AsyncListeners<IMessage>();
   private hasListeners = false;
-  private readonly bufferedMessages: Message[] = [];
+  private readonly bufferedMessages: IMessage[] = [];
   private readonly messageDispose: DisposeCallback;
   private readonly closeDispose: DisposeCallback;
 
-  constructor(private readonly commId: string, private readonly host: CommHost) {
-    this.messageDispose = this.host.addMessageListener(this.commId, (message) => {
-      if (this.hasListeners) {
-        this.listeners.push(message);
-      } else {
-        this.bufferedMessages.push(message);
+  constructor(
+    private readonly commId: string,
+    private readonly host: ICommHost
+  ) {
+    this.messageDispose = this.host.addMessageListener(
+      this.commId,
+      (message) => {
+        if (this.hasListeners) {
+          this.listeners.push(message);
+        } else {
+          this.bufferedMessages.push(message);
+        }
       }
-    });
+    );
     this.closeDispose = this.host.addCloseListener(this.commId, () => {
       this.listeners.close();
       this.dispose();
@@ -43,10 +58,15 @@ export class CommChannel {
   }
 
   // /** Sends a comm open message to the kernel. */
-  async open(targetName: string, data: unknown, buffers?: ArrayBuffer[]) {
+  async open(
+    targetName: string,
+    data: unknown,
+    buffers?: ArrayBuffer[]
+  ): Promise<void> {
     try {
       await this.host.sendCommOpen(targetName, this.commId, {
-        data, buffers
+        data,
+        buffers,
       });
     } catch (error: unknown) {
       // If the open fails then we want to close the comms to remove the
@@ -57,13 +77,15 @@ export class CommChannel {
   }
 
   /** Sends the data to the kernel. */
-  async send(data: unknown, { buffers }: { buffers?: ArrayBuffer[] } = {}):
-    Promise<void> {
+  async send(
+    data: unknown,
+    { buffers }: { buffers?: ArrayBuffer[] } = {}
+  ): Promise<void> {
     await this.host.sendCommMessage(this.commId, { data, buffers });
   }
 
   /** Gets all of the messages received on this comm channel. */
-  get messages(): AsyncIterable<Message> {
+  get messages(): AsyncIterable<IMessage> {
     const listener = this.listeners.listen();
     if (!this.hasListeners) {
       this.listenerAdded();
@@ -87,20 +109,24 @@ export class CommChannel {
   }
 
   /** Sends a message to the kernel to close this comm channel. */
-  close() {
-    this.host.sendCommClose(this.commId).catch((error: unknown) => {
-      // Only log a warning here, assume closed.
-      console.warn(`Error closing comm channel ${this.commId}`, error);
-    }).then(() => {
-      // This should be done in response to a kernel close message.
-      this.listeners.close();
-    });
+  close(): void {
+    this.host
+      .sendCommClose(this.commId)
+      .catch((error: unknown) => {
+        // Only log a warning here, assume closed.
+        console.warn(`Error closing comm channel ${this.commId}`, error);
+      })
+      .then(() => {
+        // This should be done in response to a kernel close message.
+        this.listeners.close();
+      });
   }
 
   /**
    * @return A wrapper to avoid exposing implementation details to user code.
    */
   getWrapper(): IComm {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const comm = this;
     return {
       /** @export */
@@ -112,9 +138,9 @@ export class CommChannel {
         comm.close();
       },
       /** @export */
-      get messages(): AsyncIterable<Message> {
+      get messages(): AsyncIterable<IMessage> {
         return comm.messages;
-      }
+      },
     };
   }
 }

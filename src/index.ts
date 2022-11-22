@@ -1,20 +1,24 @@
 import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 import {
   JupyterFrontEnd,
-  JupyterFrontEndPlugin
+  JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { INotebookModel, INotebookTracker } from '@jupyterlab/notebook';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
-import { Kernel, KernelMessage} from '@jupyterlab/services';
-import { JSONObject} from '@lumino/coreutils';
-
+import { Kernel, KernelMessage } from '@jupyterlab/services';
+import { JSONObject } from '@lumino/coreutils';
 
 import { Widget } from '@lumino/widgets';
-import {IRender} from './typings';
+import { IRender } from './typings';
 import { RenderContext } from './render_context';
-import {WidgetModels, WidgetCommData} from './widgets';
-import { CommCloseListener, CommHost, CommMessageListener, Message } from './comm';
+import { WidgetModels, IWidgetCommData } from './widgets';
+import {
+  CommCloseListener,
+  ICommHost,
+  CommMessageListener,
+  IMessage,
+} from './comm';
 
 /**
  * The default mime type for the extension.
@@ -29,7 +33,7 @@ const CLASS_NAME = 'mimerenderer-es6-rich-output';
 /**
  * Initialization data for the js-module-renderer extension.
  */
- const extension: JupyterFrontEndPlugin<void> = {
+const extension: JupyterFrontEndPlugin<void> = {
   id: 'richoutput-js:plugin',
   autoStart: true,
   requires: [IRenderMimeRegistry],
@@ -45,24 +49,33 @@ const CLASS_NAME = 'mimerenderer-es6-rich-output';
     rendermimeRegistry.addFactory(new RendererFactory(null), rank);
 
     if (tracker !== null) {
-      tracker.forEach(panel => {
-        panel.content.rendermime.addFactory(new RendererFactory(panel.context), rank);
+      tracker.forEach((panel) => {
+        panel.content.rendermime.addFactory(
+          new RendererFactory(panel.context),
+          rank
+        );
       });
       tracker.widgetAdded.connect((sender, panel) => {
-        panel.content.rendermime.addFactory(new RendererFactory(panel.context), rank);
+        panel.content.rendermime.addFactory(
+          new RendererFactory(panel.context),
+          rank
+        );
       });
     }
-  }
+  },
 };
 
-type CommOpenListener = (commId: string, message: Message) => void;
+type CommOpenListener = (commId: string, message: IMessage) => void;
 
-class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
+class RendererFactory implements IRenderMime.IRendererFactory, ICommHost {
   readonly safe = false;
   readonly mimeTypes = [MIME_TYPE];
   private kernel: Kernel.IKernelConnection;
   private widgets = new WidgetModels();
-  private readonly commMessageListeners = new Map<string, CommMessageListener[]>();
+  private readonly commMessageListeners = new Map<
+    string,
+    CommMessageListener[]
+  >();
   private readonly commCloseListeners = new Map<string, CommCloseListener[]>();
   private readonly commOpenListeners = new Map<string, CommOpenListener[]>();
 
@@ -91,7 +104,7 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     }
   }
 
-  addMessageListener(commId: string, handler: (message: Message) => void) {
+  addMessageListener(commId: string, handler: (message: IMessage) => void) {
     let listeners = this.commMessageListeners.get(commId);
     if (!listeners) {
       listeners = [];
@@ -119,9 +132,13 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     };
   }
 
-  registerTarget(targetName: string, handler: (commId: string, message: Message) => void) {
-    // Callback isn't used, this uses the IOPub messages instead.
-    this.kernel.registerCommTarget(targetName, () => {});
+  registerTarget(
+    targetName: string,
+    handler: (commId: string, message: IMessage) => void
+  ) {
+    this.kernel.registerCommTarget(targetName, () => {
+      // Callback isn't used, this uses the IOPub messages instead.
+    });
     let listeners = this.commOpenListeners.get(targetName);
     if (!listeners) {
       listeners = [];
@@ -134,8 +151,14 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     };
   }
 
-  async sendCommOpen(targetName: string, commId: string, message: Message): Promise<void> {
-    const msg = KernelMessage.createMessage<KernelMessage.ICommOpenMsg<'shell'>>({
+  async sendCommOpen(
+    targetName: string,
+    commId: string,
+    message: IMessage
+  ): Promise<void> {
+    const msg = KernelMessage.createMessage<
+      KernelMessage.ICommOpenMsg<'shell'>
+    >({
       msgType: 'comm_open',
       channel: 'shell',
       username: this.kernel.username,
@@ -151,23 +174,27 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     await this.kernel.sendShellMessage(msg).done;
   }
 
-  async sendCommMessage(commId: string, message: Message): Promise<void> {
-    const msg = KernelMessage.createMessage<KernelMessage.ICommMsgMsg<'shell'>>({
-      msgType: 'comm_msg',
-      channel: 'shell',
-      username: this.kernel.username,
-      session: this.kernel.clientId,
-      content: {
-        comm_id: commId,
-        data: message.data as JSONObject,
-      },
-      buffers: message.buffers,
-    });
+  async sendCommMessage(commId: string, message: IMessage): Promise<void> {
+    const msg = KernelMessage.createMessage<KernelMessage.ICommMsgMsg<'shell'>>(
+      {
+        msgType: 'comm_msg',
+        channel: 'shell',
+        username: this.kernel.username,
+        session: this.kernel.clientId,
+        content: {
+          comm_id: commId,
+          data: message.data as JSONObject,
+        },
+        buffers: message.buffers,
+      }
+    );
     await this.kernel.sendShellMessage(msg).done;
   }
 
   async sendCommClose(commId: string): Promise<void> {
-    const msg = KernelMessage.createMessage<KernelMessage.ICommCloseMsg<'shell'>>({
+    const msg = KernelMessage.createMessage<
+      KernelMessage.ICommCloseMsg<'shell'>
+    >({
       msgType: 'comm_close',
       channel: 'shell',
       username: this.kernel.username,
@@ -191,14 +218,14 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
       this.handleIoPubMessage(args);
     });
     this.kernel.registerCommTarget('jupyter.widget', (comm: Kernel.IComm) => {
-      this.handleNewCommChannel(comm);
+      // Need to have a default handler or else the kernel will crash.
     });
-    console.log(`===== kernel is now: `, this.kernel);
+    console.log('===== kernel is now: ', this.kernel);
   }
 
   handleIoPubMessage(msg: KernelMessage.IIOPubMessage) {
-    console.log(`====== got kernel iopub: `, msg);
-    switch(msg.header.msg_type) {
+    console.log('====== got kernel iopub: ', msg);
+    switch (msg.header.msg_type) {
       case 'comm_open': {
         this.onCommOpen(msg);
         break;
@@ -215,14 +242,14 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
   }
 
   onCommOpen(msg: KernelMessage.IIOPubMessage) {
-    const content = msg.content as CommOpenContent;
+    const content = msg.content as ICommOpenContent;
     const buffers = msg.buffers.map(convertBuffer);
     this.widgets.onCommOpen(content.comm_id, content.data, buffers);
     const listeners = this.commOpenListeners.get(content.target_name);
     if (listeners) {
       for (const listener of listeners) {
         listener(content.comm_id, {
-          data: content.data, 
+          data: content.data,
           buffers,
         });
       }
@@ -230,7 +257,7 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
   }
 
   onCommMessage(msg: KernelMessage.IIOPubMessage) {
-    const content = msg.content as CommContent;
+    const content = msg.content as ICommContent;
     const buffers = msg.buffers.map(convertBuffer);
     this.widgets.onCommMessage(content.comm_id, content.data, buffers);
     const listeners = this.commMessageListeners.get(content.comm_id);
@@ -239,13 +266,13 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
         listener({
           data: content.data,
           buffers,
-        })
+        });
       }
     }
   }
 
   onCommClose(msg: KernelMessage.IIOPubMessage) {
-    const content = msg.content as CommContent;
+    const content = msg.content as ICommContent;
     this.widgets.onCommClose(content.comm_id);
     const listeners = this.commCloseListeners.get(content.comm_id);
     if (listeners) {
@@ -255,38 +282,41 @@ class RendererFactory implements IRenderMime.IRendererFactory, CommHost {
     }
   }
 
-  handleNewCommChannel(comm: Kernel.IComm) {
-  }
-
   createRenderer(options: IRenderMime.IRendererOptions): IRenderMime.IRenderer {
     return new OutputWidget(options, this.widgets, this);
   }
 }
 
-function convertBuffer(bufferOrView: ArrayBuffer|ArrayBufferView): ArrayBuffer {
+function convertBuffer(
+  bufferOrView: ArrayBuffer | ArrayBufferView
+): ArrayBuffer {
   if (bufferOrView instanceof ArrayBuffer) {
     return bufferOrView;
   }
-  if (bufferOrView.byteOffset == 0 && bufferOrView.byteLength === bufferOrView.buffer.byteLength) {
+  if (
+    bufferOrView.byteOffset === 0 &&
+    bufferOrView.byteLength === bufferOrView.buffer.byteLength
+  ) {
     // If there's no byte offset and no truncated length then return the underlying buffer.
     return bufferOrView.buffer;
   }
   // Need to clone the buffer.
   const buffer = new ArrayBuffer(bufferOrView.byteLength);
-  new Uint8Array(buffer).set(new Uint8Array(bufferOrView as unknown as  ArrayBufferLike));
+  new Uint8Array(buffer).set(
+    new Uint8Array(bufferOrView as unknown as ArrayBufferLike)
+  );
   return buffer;
-
 }
 
-declare interface CommContent {
+declare interface ICommContent {
   readonly comm_id: string;
-  readonly data: WidgetCommData;
+  readonly data: IWidgetCommData;
 }
 
-declare interface CommOpenContent {
+declare interface ICommOpenContent {
   readonly target_name: string;
   readonly comm_id: string;
-  readonly data: WidgetCommData;
+  readonly data: IWidgetCommData;
 }
 
 /**
@@ -296,7 +326,11 @@ export class OutputWidget extends Widget implements IRenderMime.IRenderer {
   /**
    * Construct a new output widget.
    */
-  constructor(options: IRenderMime.IRendererOptions, private readonly widgets: WidgetModels, private readonly commHost?: CommHost) {
+  constructor(
+    options: IRenderMime.IRendererOptions,
+    private readonly widgets: WidgetModels,
+    private readonly commHost?: ICommHost
+  ) {
     super();
     this._mimeType = options.mimeType;
     this.addClass(CLASS_NAME);
